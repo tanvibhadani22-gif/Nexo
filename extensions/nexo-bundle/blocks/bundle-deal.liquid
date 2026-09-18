@@ -1,0 +1,388 @@
+<div
+  id="nexo-bundle"
+  class="nexo-bundle"
+  data-shop="{{ shop.permanent_domain }}"
+>
+  <div class="nexo-bundle__loading">
+    Loading bundle...
+  </div>
+</div>
+
+<style>
+  .nexo-bundle {
+    width: 100%;
+    margin: 20px 0;
+    font-family: inherit;
+  }
+
+  .nexo-bundle__list {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  /* Bundle card */
+  .nexo-bundle__item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 66px;
+    box-sizing: border-box;
+
+    padding: 10px 14px;
+
+    border: 1.5px solid #bdbdbd;
+    border-radius: 16px;
+
+    background: #eeeeee;
+
+    cursor: pointer;
+    transition:
+      border-color 0.18s ease,
+      background 0.18s ease,
+      box-shadow 0.18s ease;
+  }
+
+  /* Selected card */
+  .nexo-bundle__item.is-selected {
+    border-color: #111111;
+    background: #ffffff;
+  }
+
+  /* Radio */
+  .nexo-bundle__radio {
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+
+    margin-right: 14px;
+
+    border: 2px solid #b7b7b7;
+    border-radius: 50%;
+
+    background: #ffffff;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    box-sizing: border-box;
+  }
+
+  .nexo-bundle__item.is-selected .nexo-bundle__radio {
+    border-color: #111111;
+  }
+
+  .nexo-bundle__radio::after {
+    content: "";
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #111111;
+
+    opacity: 0;
+    transform: scale(0.5);
+
+    transition:
+      opacity 0.15s ease,
+      transform 0.15s ease;
+  }
+
+  .nexo-bundle__item.is-selected .nexo-bundle__radio::after {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  /* Main content */
+  .nexo-bundle__content {
+    min-width: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+  }
+
+  .nexo-bundle__title-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+
+  .nexo-bundle__title {
+    margin: 0;
+
+    color: #111111;
+
+    font-size: 16px;
+    line-height: 20px;
+    font-weight: 500;
+  }
+
+  /* Save badge */
+  .nexo-bundle__badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 4px 8px;
+
+    border-radius: 10px;
+
+    background: #d9d9d9;
+    color: #333333;
+
+    font-size: 11px;
+    line-height: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  /* Price area */
+  .nexo-bundle__price {
+    flex: 0 0 auto;
+
+    margin-left: 10px;
+
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+
+    line-height: 1.1;
+  }
+
+  .nexo-bundle__current-price {
+    color: #111111;
+
+    font-size: 16px;
+    line-height: 19px;
+    font-weight: 500;
+  }
+
+  .nexo-bundle__old-price {
+    margin-top: 3px;
+
+    color: #666666;
+
+    font-size: 12px;
+    line-height: 14px;
+
+    text-decoration: line-through;
+    text-decoration-thickness: 1px;
+  }
+
+  .nexo-bundle__loading {
+    padding: 16px;
+    text-align: center;
+    font-size: 14px;
+  }
+
+  /* Mobile */
+  @media (max-width: 480px) {
+    .nexo-bundle__item {
+      min-height: 64px;
+      padding: 9px 12px;
+      border-radius: 15px;
+    }
+
+    .nexo-bundle__radio {
+      width: 23px;
+      height: 23px;
+      margin-right: 12px;
+    }
+
+    .nexo-bundle__title {
+      font-size: 15px;
+    }
+
+    .nexo-bundle__current-price {
+      font-size: 15px;
+    }
+
+    .nexo-bundle__old-price {
+      font-size: 11px;
+    }
+
+    .nexo-bundle__badge {
+      font-size: 10px;
+      padding: 4px 7px;
+    }
+  }
+</style>
+
+<script>
+  document.addEventListener("DOMContentLoaded", async function () {
+    const container = document.getElementById("nexo-bundle");
+
+    if (!container) return;
+
+    try {
+      const response = await fetch("/apps/nexo-bundles");
+
+      if (!response.ok) {
+        throw new Error("Failed to load bundles");
+      }
+
+      const data = await response.json();
+
+      if (!data.bundles || data.bundles.length === 0) {
+        container.innerHTML = "";
+        return;
+      }
+
+      /*
+       * Calculates the original price.
+       *
+       * If your API already returns originalPrice, that value
+       * will be used instead.
+       */
+      function getOriginalPrice(bundle) {
+        if (bundle.originalPrice != null) {
+          return Number(bundle.originalPrice);
+        }
+
+        const price = Number(bundle.price || 0);
+        const discount = Number(bundle.discount || 50);
+
+        if (discount <= 0 || discount >= 100) {
+          return price;
+        }
+
+        return price / (1 - discount / 100);
+      }
+
+      function formatPrice(price) {
+        return "$" + Number(price).toFixed(2);
+      }
+
+      container.innerHTML = `
+        <div class="nexo-bundle__list" role="radiogroup">
+          ${data.bundles
+            .map((bundle, index) => {
+              const price = Number(bundle.price || 0);
+              const originalPrice = getOriginalPrice(bundle);
+
+              const discount =
+                bundle.discount != null
+                  ? Number(bundle.discount)
+                  : Math.round(
+                      ((originalPrice - price) / originalPrice) * 100
+                    );
+
+              return `
+                <div
+                  class="nexo-bundle__item ${index === 0 ? "is-selected" : ""}"
+                  role="radio"
+                  aria-checked="${index === 0 ? "true" : "false"}"
+                  tabindex="${index === 0 ? "0" : "-1"}"
+                  data-index="${index}"
+                >
+
+                  <div class="nexo-bundle__radio"></div>
+
+                  <div class="nexo-bundle__content">
+                    <div class="nexo-bundle__title-row">
+
+                      <div class="nexo-bundle__title">
+                        Buy ${bundle.buy}, Get ${bundle.get} Free
+                      </div>
+
+                      <span class="nexo-bundle__badge">
+                        SAVE ${discount}%
+                      </span>
+
+                    </div>
+                  </div>
+
+                  <div class="nexo-bundle__price">
+
+                    <span class="nexo-bundle__current-price">
+                      ${formatPrice(price)}
+                    </span>
+
+                    <span class="nexo-bundle__old-price">
+                      ${formatPrice(originalPrice)}
+                    </span>
+
+                  </div>
+
+                </div>
+              `;
+            })
+            .join("")}
+        </div>
+      `;
+
+      /*
+       * Bundle selection
+       */
+      const items = container.querySelectorAll(
+        ".nexo-bundle__item"
+      );
+
+      items.forEach((item) => {
+        function selectBundle() {
+          items.forEach((otherItem) => {
+            otherItem.classList.remove("is-selected");
+            otherItem.setAttribute("aria-checked", "false");
+            otherItem.setAttribute("tabindex", "-1");
+          });
+
+          item.classList.add("is-selected");
+          item.setAttribute("aria-checked", "true");
+          item.setAttribute("tabindex", "0");
+
+          /*
+           * Optional:
+           * Make selected bundle available globally.
+           */
+          const selectedIndex = Number(
+            item.dataset.index
+          );
+
+          const selectedBundle =
+            data.bundles[selectedIndex];
+
+          window.nexoSelectedBundle = selectedBundle;
+
+          /*
+           * Custom event for your cart/product logic.
+           */
+          container.dispatchEvent(
+            new CustomEvent("nexo:bundle-selected", {
+              bubbles: true,
+              detail: selectedBundle
+            })
+          );
+        }
+
+        item.addEventListener("click", selectBundle);
+
+        item.addEventListener("keydown", function (event) {
+          if (
+            event.key === "Enter" ||
+            event.key === " "
+          ) {
+            event.preventDefault();
+            selectBundle();
+          }
+        });
+      });
+
+    } catch (error) {
+      console.error("Nexo Bundle Error:", error);
+      container.innerHTML = "";
+    }
+  });
+</script>
+
+{% schema %}
+{
+  "name": "Nexo Bundle Deal",
+  "target": "section",
+  "settings": []
+}
+{% endschema %}
